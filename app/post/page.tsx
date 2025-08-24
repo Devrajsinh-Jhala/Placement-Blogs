@@ -26,14 +26,19 @@ export default function PostPage() {
 function WizardForm() {
   const router = useRouter();
   const { user } = useUser();
+
+  // stages
   const [stage, setStage] = useState<"record" | "followups" | "review">(
     "record"
   );
+
+  // transcript / mic
   const [transcript, setTranscript] = useState("");
   const [recording, setRecording] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const finalRef = useRef("");
 
-  // Structured fields
+  // structured fields
   const [company, setCompany] = useState("");
   const [role, setRole] = useState("");
   const [date, setDate] = useState("");
@@ -42,22 +47,26 @@ function WizardForm() {
     "" | "Internship" | "Full-Time" | "PS"
   >("");
 
-  // Follow-ups
+  // follow-ups
   const [projectBased, setProjectBased] = useState<"yes" | "no" | "mix" | "">(
     ""
   );
-  const [topics, setTopics] = useState<string[]>([]); // e.g., ["CN", "OS", "DBMS", "DSA"]
+  const [topics, setTopics] = useState<string[]>([]); // ["CN","OS","DBMS","DSA"]
   const [surprise, setSurprise] = useState("");
   const [advice, setAdvice] = useState("");
+
+  // UX
   const [submitting, setSubmitting] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const overlayTimerRef = useRef<any>(null);
 
   const toggleTopic = (t: string) =>
     setTopics((prev) =>
       prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]
     );
 
-  const finalRef = useRef("");
-
+  // ----- mic handlers (no duplicate interim) -----
   const startMic = () => {
     const SR =
       (window as any).webkitSpeechRecognition ||
@@ -107,7 +116,6 @@ function WizardForm() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Build the raw text the AI will format
     const content_raw = [
       "Transcript:",
       transcript.trim(),
@@ -128,7 +136,13 @@ function WizardForm() {
 
     try {
       setSubmitting(true);
+      setShowOverlay(true);
+      setStep(1);
+      overlayTimerRef.current = window.setInterval(() => {
+        setStep((s) => (s === 1 ? 2 : s === 2 ? 3 : 3));
+      }, 4000);
 
+      // create post
       const res = await fetch("/api/posts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,14 +152,14 @@ function WizardForm() {
           interview_date: date || null,
           degree_level: degree || undefined,
           opportunity_type: oppType || undefined,
+          topics, // store selected topics for filters
           content_raw,
         }),
       });
-
       if (!res.ok) throw new Error(await res.text());
       const { id, slug } = await res.json();
 
-      // kick background AI
+      // trigger background AI
       fetch("/api/ai/process", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -153,29 +167,33 @@ function WizardForm() {
         keepalive: true,
       }).catch(() => {});
 
-      // poll status before redirect
-      const until = Date.now() + 90_000; // 90s max
+      // poll status until published (or failed/timeout)
+      const until = Date.now() + 90_000;
       while (Date.now() < until) {
-        const s = await fetch(`/api/posts/${id}/status`, {
-          cache: "no-store",
-        }).then((r) => r.json());
+        const r = await fetch(`/api/posts/${id}/status`, { cache: "no-store" });
+        if (!r.ok) break;
+        const s = await r.json();
         if (s.status === "published") {
+          window.clearInterval(overlayTimerRef.current);
           router.push(`/p/${s.slug}`);
           return;
         }
         if (s.status === "failed") {
+          window.clearInterval(overlayTimerRef.current);
           alert("AI formatting failed. Showing draft.");
-          router.push(`/p/${s.slug}`);
+          router.push(`/p/${slug}`);
           return;
         }
-        await new Promise((r) => setTimeout(r, 2000));
+        await new Promise((res) => setTimeout(res, 2000));
       }
-      // timeout fallback
+      window.clearInterval(overlayTimerRef.current);
       router.push(`/p/${slug}`);
     } catch (err: any) {
+      window.clearInterval(overlayTimerRef.current);
       alert(err?.message || "Something went wrong");
     } finally {
       setSubmitting(false);
+      setShowOverlay(false);
     }
   };
 
@@ -204,6 +222,7 @@ function WizardForm() {
               className="border rounded px-3 py-2"
             />
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <select
               value={degree}
@@ -252,6 +271,7 @@ function WizardForm() {
               We do not upload audio; only the text transcript is sent.
             </div>
           </div>
+
           <textarea
             value={transcript}
             onChange={(e) => setTranscript(e.target.value)}
@@ -259,6 +279,7 @@ function WizardForm() {
             placeholder="Your transcript appears here…"
             className="w-full border rounded px-3 py-2"
           />
+
           <button
             onClick={nextToFollowups}
             className="px-4 py-2 rounded bg-black text-white"
@@ -288,6 +309,7 @@ function WizardForm() {
               ))}
             </div>
           </div>
+
           <div>
             <div className="font-medium mb-1">Were these asked?</div>
             <div className="flex flex-wrap gap-2">
@@ -305,6 +327,7 @@ function WizardForm() {
               ))}
             </div>
           </div>
+
           <div>
             <div className="font-medium mb-1">What surprised you?</div>
             <input
@@ -313,6 +336,7 @@ function WizardForm() {
               className="w-full border rounded px-3 py-2"
             />
           </div>
+
           <div>
             <div className="font-medium mb-1">
               Your recommendation for juniors
@@ -324,6 +348,7 @@ function WizardForm() {
               className="w-full border rounded px-3 py-2"
             />
           </div>
+
           <div className="flex gap-2">
             <button
               onClick={() => setStage("record")}
@@ -379,6 +404,32 @@ function WizardForm() {
             </button>
           </div>
         </form>
+      )}
+
+      {/* Processing overlay */}
+      {showOverlay && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl p-5 w-full max-w-sm">
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-gray-900" />
+              <div className="font-medium">Publishing your post…</div>
+            </div>
+            <ol className="mt-3 space-y-2 text-sm">
+              <li className={step >= 1 ? "text-gray-900" : "text-gray-400"}>
+                1. Formatting
+              </li>
+              <li className={step >= 2 ? "text-gray-900" : "text-gray-400"}>
+                2. Finding problem links
+              </li>
+              <li className={step >= 3 ? "text-gray-900" : "text-gray-400"}>
+                3. Adding recommended resources
+              </li>
+            </ol>
+            <p className="mt-3 text-xs text-gray-500">
+              You’ll be redirected once it’s ready.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

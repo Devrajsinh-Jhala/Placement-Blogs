@@ -2,14 +2,20 @@ import ReactMarkdown from "react-markdown";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { supabaseAnon } from "@/lib/supabase/server";
+import CopyLinkButton from "./CopyLinkButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function PostDetail({
   params,
+  searchParams,
 }: {
   params: { slugOrId: string };
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const sp = await searchParams;
+  const returnTo = typeof sp.returnTo === "string" ? sp.returnTo : "";
+
   const supa = supabaseAnon();
   let { data: post } = await supa
     .from("posts")
@@ -31,12 +37,15 @@ export default async function PostDetail({
   }
   if (!post) return notFound();
 
+  const backHref = returnTo ? `/?${returnTo}` : "/";
+
   return (
     <div className="mx-auto max-w-3xl">
-      <div className="mb-6">
-        <Link href="/" className="text-sm text-gray-500 hover:underline">
-          ← Back
+      <div className="mb-6 flex items-center gap-3">
+        <Link href={backHref} className="text-sm text-gray-500 hover:underline">
+          ← Back to results
         </Link>
+        <CopyLinkButton />
       </div>
 
       <header className="mb-4">

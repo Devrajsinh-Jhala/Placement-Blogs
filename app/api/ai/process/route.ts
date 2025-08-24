@@ -1,12 +1,14 @@
 // app/api/ai/process/route.ts
+import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/server";
-import { toFormattedPost, findLinksWithGemini } from "@/lib/ai/gemini";
-import { curatedMatch, toLinksJson, renderPracticeSection } from "@/lib/ai/curatedProblems";
+import { toStructuredPost } from "@/lib/ai/gemini";
+import { enrichLinks } from "@/lib/ai/enrich";
+import { pickResources } from "@/lib/resources/pick";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     const { id } = await req.json();
     if (!id) return new Response("Missing id", { status: 400 });
 
@@ -15,7 +17,8 @@ export async function POST(req: Request) {
     if (error || !post) return new Response("Not found", { status: 404 });
 
     try {
-        const ai = await toFormattedPost({
+        // 1) Structured format + signals
+        const structured = await toStructuredPost({
             company: post.company ?? undefined,
             role: post.role ?? undefined,
             interview_date: post.interview_date ?? undefined,
@@ -24,40 +27,39 @@ export async function POST(req: Request) {
             content_raw: post.content_raw,
         });
 
-        // 1) curated fuzzy hits
-        const curated = curatedMatch(`${ai.markdown}\n${post.content_raw}`, 3);
+        // 2) Use model-provided search queries for link enrichment
+        const enrichment = await enrichLinks({
+            raw: post.content_raw || "",
+            formatted: structured.markdown || "",
+            searchBundles: structured.searchQueries,
+        });
 
-        // 2) if <3, ask Gemini for more (send the lines we think are questions)
-        const missingCount = Math.max(0, 3 - curated.length);
-        let llmLinks: any[] = [];
-        if (missingCount > 0) {
-            // quick phrase extraction from the user text (simple heuristics to keep it light)
-            const candidates = Array.from(
-                new Set(
-                    (post.content_raw.match(/([a-zA-Z0-9 +-]+linked list|coin change|binary search|two sum|matrix|graph|tree|dp|dynamic programming)/gi) || [])
-                        .map((s: any) => s.toLowerCase())
-                )
-            ).slice(0, 5);
-            // @ts-ignore
-            llmLinks = await findLinksWithGemini(candidates);
+        // 3) Union topics: user selections + model-detected
+        const userTopics: string[] = Array.isArray(post.topics) ? post.topics : [];
+        const modelTopics: string[] = structured.topicsDetected || [];
+        const mergedTopics = Array.from(new Set([...userTopics, ...modelTopics]));
+
+        // 4) Pick topic-based resources from file (no DB schema change)
+        const resourcePack = pickResources(mergedTopics, 2, 6);
+
+        // 5) Build final markdown
+        let combinedMd = structured.markdown || "";
+        if (enrichment.practiceMd) {
+            combinedMd += `\n\n## Practice & Similar Problems\n${enrichment.practiceMd}`;
+        }
+        if (resourcePack.markdown) {
+            combinedMd += `\n\n## Recommended Resources\n${resourcePack.markdown}`;
         }
 
-        // merge + unique by title
-        const merged = [...toLinksJson(curated), ...llmLinks].filter(Boolean)
-            .filter((v, i, arr) => arr.findIndex(x => x.title === v.title) === i)
-            .slice(0, 3);
-
-        const practiceMd = renderPracticeSection(curated);
-        const combinedMd = merged.length
-            ? `${ai.markdown}\n\n## Practice & Similar Problems\n${practiceMd || merged.map(l => `- **${l.title}** (${l.site}) → ${l.url}`).join("\n")}`
-            : ai.markdown;
-
-        await supa.from("posts").update({
-            title: ai.title?.slice(0, 80) ?? null,
-            content_formatted: combinedMd,
-            links_json: merged,
-            status: "published",
-        }).eq("id", id);
+        await supa
+            .from("posts")
+            .update({
+                title: structured.title?.slice(0, 80) ?? null,
+                content_formatted: combinedMd,
+                links_json: enrichment.links, // used for practice chips on Home
+                status: "published",
+            })
+            .eq("id", id);
 
         return Response.json({ ok: true });
     } catch (err: any) {
