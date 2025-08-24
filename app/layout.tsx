@@ -19,8 +19,8 @@ export default function RootLayout({
                 Placement Chronicles
               </Link>
               <nav className="flex items-center gap-4">
-                <Link href="/" className="text-sm">
-                  Home
+                <Link href="/about" className="text-sm">
+                  About
                 </Link>
                 <Link href="/post" className="text-sm">
                   Post
