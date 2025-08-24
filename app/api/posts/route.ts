@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase/server";
 import { slugify } from "@/lib/slug";
 import { nanoid } from "@/lib/id";
 import { z } from "zod";
+import { NextRequest } from "next/server";
 
 
 export const runtime = "nodejs";
@@ -18,7 +19,7 @@ const PostSchema = z.object({
 });
 
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     //@ts-ignore
     const { userId } = await getAuth(req);
     if (!userId) return new Response("Unauthorized", { status: 401 });
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
 }
 
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const q = searchParams.get("q") ?? "";
     const supa = supabaseAdmin();
