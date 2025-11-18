@@ -13,7 +13,7 @@ export async function extractQuestionsAndQueries(input: {
     content_raw: string;
     content_formatted?: string;
 }): Promise<Extracted> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const sys = `You extract interview coding problem names and build web search queries.
 Return strict JSON: {"questions":[{"name": "...", "tags":[], "synonyms":[]}], "searchQueries":[{"question":"...", "queries":["..."]}]}
 Rules:
@@ -42,7 +42,7 @@ Rules:
 // lib/ai/gemini.ts  (append this helper)
 export async function findLinksWithGemini(problemPhrases: string[]): Promise<{ title: string, url: string, site: "LeetCode" | "GFG" | "Other" }[]> {
     if (!problemPhrases.length) return [];
-    const model = new (await import("@google/generative-ai")).GoogleGenerativeAI(process.env.GEMINI_API_KEY!).getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = new (await import("@google/generative-ai")).GoogleGenerativeAI(process.env.GEMINI_API_KEY!).getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `Given these interview problem names, output JSON {links:[{title,url,site}]}. 
 Rules:
 - Prefer LeetCode. If not available, use GeeksForGeeks. 
@@ -80,7 +80,7 @@ export async function toStructuredPost(input: {
   opportunity_type?: "Internship" | "Full-Time" | "PS";
   content_raw: string;
 }): Promise<StructuredPost> {
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const sys = `You are formatting a student interview write-up and extracting problems/topics for search.
 Return STRICT JSON only (no markdown outside fields).
@@ -162,7 +162,7 @@ export async function toFormattedPost(input: {
     opportunity_type?: string | null;
     content_raw: string;
 }): Promise<AiResult> {
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const sys = `You clean up a student's interview write-up.
 Return JSON with: title (<=80 chars), markdown.
 Markdown should include sections: Summary, Rounds & Questions (bullets if any), Tips for juniors.
