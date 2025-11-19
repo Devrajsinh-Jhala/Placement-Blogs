@@ -194,56 +194,56 @@ Rules:
 - No URLs in questions or queries.
 `;
 
-  const resp = await model.generateContent({
-    contents: [{ role: "user", parts: [{ text: user }] }],
-    safetySettings,
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: "application/json",
-      maxOutputTokens: 3000,
-      responseSchema: {
-        type: SchemaType.OBJECT,
-        properties: {
-          title: { type: SchemaType.STRING },
-          markdown: { type: SchemaType.STRING },
-          questions: {
-            type: SchemaType.ARRAY,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                name: { type: SchemaType.STRING },
-                tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
-                synonyms: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
-              },
-              required: ["name"]
-            }
-          },
-          topicsDetected: {
-            type: SchemaType.ARRAY,
-            items: { type: SchemaType.STRING }
-          },
-          searchQueries: {
-            type: SchemaType.ARRAY,
-            items: {
-              type: SchemaType.OBJECT,
-              properties: {
-                question: { type: SchemaType.STRING },
-                queries: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
-              },
-              required: ["question", "queries"]
-            }
-          }
-        },
-        required: ["title", "markdown"]
-      }
-    },
-  });
-
-  // Validate and coerce
   try {
+    const resp = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: user }] }],
+      safetySettings,
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+        maxOutputTokens: 3000,
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            title: { type: SchemaType.STRING },
+            markdown: { type: SchemaType.STRING },
+            questions: {
+              type: SchemaType.ARRAY,
+              items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  name: { type: SchemaType.STRING },
+                  tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+                  synonyms: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+                },
+                required: ["name"]
+              }
+            },
+            topicsDetected: {
+              type: SchemaType.ARRAY,
+              items: { type: SchemaType.STRING }
+            },
+            searchQueries: {
+              type: SchemaType.ARRAY,
+              items: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  question: { type: SchemaType.STRING },
+                  queries: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
+                },
+                required: ["question", "queries"]
+              }
+            }
+          },
+          required: ["title", "markdown"]
+        }
+      },
+    });
+
     const json = JSON.parse(resp.response.text() || "{}");
     return StructuredPostSchema.parse(json);
-  } catch {
+  } catch (err) {
+    console.error("[toStructuredPost] Error:", err);
     // Hard fallback: reuse your existing formatter so the app never blocks
     // (Assumes you already have toFormattedPost in this file)
     const fallback = await toFormattedPost(input);
@@ -285,15 +285,7 @@ Be concise and friendly. If info missing, omit that section.`;
     generationConfig: {
       temperature: 0.2,
       maxOutputTokens: 2000,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: SchemaType.OBJECT,
-        properties: {
-          title: { type: SchemaType.STRING },
-          markdown: { type: SchemaType.STRING }
-        },
-        required: ["title", "markdown"]
-      }
+      // Removed strict JSON schema for fallback to ensure it always works
     },
   });
 
@@ -303,10 +295,13 @@ Be concise and friendly. If info missing, omit that section.`;
     console.log("AI raw:", text?.slice(0, 500));
   }
   try {
+    // Try to parse if it happens to be JSON
     const json = JSON.parse(text);
     return { title: json.title || "Interview Experience", markdown: json.markdown || "" };
   } catch {
     // Fallback: treat as markdown
-    return { title: `${input.company ?? ""} ${input.role ?? "Interview"}`.trim(), markdown: text };
+    // Clean up markdown fences if present
+    const cleanText = text.replace(/^```(?:json|markdown)?\s*\n?/i, '').replace(/\n?```\s*$/i, '').trim();
+    return { title: `${input.company ?? ""} ${input.role ?? "Interview"}`.trim(), markdown: cleanText };
   }
 }
