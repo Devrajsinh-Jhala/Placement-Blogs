@@ -25,6 +25,8 @@ export async function enrichLinks(input: {
                 : (extracted.questions || []).map((q) => ({ question: q.name, queries: [q.name] }));
     }
 
+    console.log("[enrichLinks] Found bundles:", bundles?.length || 0);
+
     // Normalize / de-dup question names
     const seenQ = new Set<string>();
     bundles = (bundles || []).filter((b) => {
@@ -40,15 +42,18 @@ export async function enrichLinks(input: {
     for (const b of bundles) {
         if (picks.length >= 3) break;
 
-        // prefer one canonical link per problem
+        // Try web search first
         let found = await findProblemLinks(b.queries || [b.question], 3);
+        console.log(`[enrichLinks] Web search for "${b.question}":`, found.length, "results");
 
         // Gemini fallback if web search returned nothing
         if (!found.length) {
             const { findLinksWithGemini } = await import("./gemini");
             try {
                 found = await findLinksWithGemini([b.question, ...(b.queries || [])]);
-            } catch {
+                console.log(`[enrichLinks] Gemini fallback for "${b.question}":`, found.length, "results");
+            } catch (err) {
+                console.error(`[enrichLinks] Gemini fallback error:`, err);
                 found = [];
             }
         }
@@ -74,6 +79,22 @@ export async function enrichLinks(input: {
             if (picks.length >= 3) break;
         }
     }
+
+    // 4) Final Gemini fallback: if we still have no links at all, use Gemini with all questions
+    if (picks.length === 0 && bundles.length > 0) {
+        console.log("[enrichLinks] No links found, trying Gemini with all questions");
+        const { findLinksWithGemini } = await import("./gemini");
+        try {
+            const allQuestions = bundles.map(b => b.question).filter(Boolean);
+            const geminiLinks = await findLinksWithGemini(allQuestions);
+            picks.push(...geminiLinks.slice(0, 3));
+            console.log("[enrichLinks] Gemini returned:", geminiLinks.length, "links");
+        } catch (err) {
+            console.error("[enrichLinks] Final Gemini fallback error:", err);
+        }
+    }
+
+    console.log("[enrichLinks] Final picks:", picks.length);
 
     const practiceMd = picks.length
         ? picks.map((p) => `- **${p.title}** (${p.site}) → ${p.url}`).join("\n")
