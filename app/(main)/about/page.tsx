@@ -7,34 +7,34 @@ export default async function AboutPage() {
       <div className="flex items-center gap-4">
         <div className="relative h-20 w-20">
           <Image
-            src="/my new image.jpg"
-            alt="Your photo"
+            src="/app-logo.png"
+            alt="Placement Chronicles Logo"
             fill
             sizes="80px"
-            className="rounded-full object-cover"
+            className="object-contain"
             priority
           />
         </div>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">About</h1>
           <p className="text-sm text-gray-600">
-            Why I built this & what this app can do for you.
+            Why we built this & what this app can do for you.
           </p>
         </div>
       </div>
 
       <section className="bg-white border rounded-2xl p-5 shadow-sm">
-        <h2 className="font-semibold mb-2">Hi, I’m Devrajsinh Jhala</h2>
+        <h2 className="font-semibold mb-2">About Placement Chronicles</h2>
         <p className="text-gray-700">
-          I built this app to make it ridiculously easy for juniors to share and
-          learn from real interview experiences. Speak your story, and the AI
+          We built this app to make it ridiculously easy for students to share and
+          learn from real interview experiences. Simply speak your story, and our AI
           tidies it up, adds practice links, and recommends the best
-          resources—so you can focus on prep, not formatting.
+          resources—so you can focus on preparation, not formatting.
         </p>
       </section>
 
       <section className="bg-white border rounded-2xl p-5 shadow-sm">
-        <h3 className="font-semibold mb-3">Salient features</h3>
+        <h3 className="font-semibold mb-3">Key Features</h3>
         <ul className="list-disc pl-5 space-y-2 text-gray-700">
           <li>
             🎙️ Voice-first posting — speak your experience; no audio stored.
@@ -56,7 +56,7 @@ export default async function AboutPage() {
       </section>
 
       <section className="bg-white border rounded-2xl p-5 shadow-sm">
-        <h3 className="font-semibold mb-3">Let’s connect</h3>
+        <h3 className="font-semibold mb-3">Let's connect</h3>
         <div className="flex flex-wrap gap-3">
           <Link
             href="https://www.linkedin.com/in/devrajsinh-jhala/"

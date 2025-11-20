@@ -77,7 +77,7 @@ export default async function Home({
       {/* Filter form (pure HTML, no handlers) */}
       <form
         key={formKey} // reset form if filters change
-        action="/"
+        action="/dashboard"
         method="get"
         className="bg-white border rounded-xl p-4 shadow-sm"
       >
@@ -159,7 +159,7 @@ export default async function Home({
             <button className="px-4 py-2 rounded bg-black text-white">
               Search
             </button>
-            <Link href="/" className="px-4 py-2 rounded border">
+            <Link href="/dashboard" className="px-4 py-2 rounded border">
               Clear
             </Link>
             <div className="ml-auto text-xs text-gray-500 self-center">
@@ -188,19 +188,18 @@ export default async function Home({
                 </Link>
               </h2>
               <span
-                className={`text-xs px-2 py-1 rounded ${
-                  p.status === "published"
+                className={`text-xs px-2 py-1 rounded ${p.status === "published"
                     ? "bg-green-100 text-green-700"
                     : p.status === "failed"
-                    ? "bg-red-100 text-red-700"
-                    : "bg-yellow-100 text-yellow-700"
-                }`}
+                      ? "bg-red-100 text-red-700"
+                      : "bg-yellow-100 text-yellow-700"
+                  }`}
               >
                 {p.status === "published"
                   ? "Published"
                   : p.status === "failed"
-                  ? "Failed"
-                  : "Formatting…"}
+                    ? "Failed"
+                    : "Formatting…"}
               </span>
             </div>
 
@@ -333,7 +332,7 @@ function Pagination({
     for (const t of topicsList) usp.append("topics", t);
     usp.set("page", String(p));
     usp.set("limit", String(limit));
-    return `/?${usp.toString()}`;
+    return `/dashboard?${usp.toString()}`;
   };
   return (
     <div className="flex items-center justify-center gap-2 pt-2">

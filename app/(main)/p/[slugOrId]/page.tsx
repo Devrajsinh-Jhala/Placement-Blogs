@@ -37,7 +37,7 @@ export default async function PostDetail({
   }
   if (!post) return notFound();
 
-  const backHref = returnTo ? `/?${returnTo}` : "/";
+  const backHref = returnTo ? `/dashboard?${returnTo}` : "/dashboard";
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -79,13 +79,12 @@ export default async function PostDetail({
             </span>
           )}
           <span
-            className={`ml-auto px-2 py-1 rounded-full ${
-              post.status === "published"
+            className={`ml-auto px-2 py-1 rounded-full ${post.status === "published"
                 ? "bg-green-100 text-green-700"
                 : post.status === "failed"
-                ? "bg-red-100 text-red-700"
-                : "bg-yellow-100 text-yellow-700"
-            }`}
+                  ? "bg-red-100 text-red-700"
+                  : "bg-yellow-100 text-yellow-700"
+              }`}
           >
             {post.status}
           </span>
